@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, AlertCircle, CheckCircle, Loader2, Video, Image } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle, Loader2, Video, Image, Music } from 'lucide-react';
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -12,23 +12,6 @@ export default function Home() {
   const addLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('vi-VN');
     setLogs(prev => [...prev, { message, type, timestamp }]);
-  };
-
-  const extractVideoId = (inputUrl) => {
-    const patterns = [
-      /video\/(\d+)/,
-      /v\.douyin\.com\/([A-Za-z0-9]+)/,
-      /tiktok\.com\/@[\w.]+\/video\/(\d+)/,
-      /vm\.tiktok\.com\/([A-Za-z0-9]+)/,
-      /vt\.tiktok\.com\/([A-Za-z0-9]+)/,
-      /tiktok\.com\/t\/([A-Za-z0-9]+)/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = inputUrl.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
   };
 
   const handleDownload = async () => {
@@ -45,32 +28,21 @@ export default function Home() {
     addLog(`URL đầu vào: ${url}`, 'info');
 
     try {
-      const videoId = extractVideoId(url);
-      if (videoId) {
-        addLog(`✓ Đã trích xuất Video ID: ${videoId}`, 'success');
-      }
-
-      addLog('Đang gửi yêu cầu đến API...', 'info');
+      addLog('Đang gửi yêu cầu qua API proxy...', 'info');
       
-      const apiUrl = `https://api.douyin.wtf/api/hybrid/video_data?url=${encodeURIComponent(url)}&minimal=false`;
+      const response = await fetch(`/api/tiktok?url=${encodeURIComponent(url)}`);
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
       addLog(`✓ Nhận phản hồi từ server (Status: ${response.status})`, 'success');
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (data.code !== 200) {
-        throw new Error(data.message || 'API trả về lỗi');
+      if (data.code !== 0) {
+        throw new Error(data.msg || 'API trả về lỗi');
       }
 
       addLog('✓ Phân tích dữ liệu thành công!', 'success');
@@ -78,12 +50,12 @@ export default function Home() {
       const videoInfo = data.data;
       setVideoData(videoInfo);
 
-      addLog(`✓ Tiêu đề: ${videoInfo.desc || 'Không có tiêu đề'}`, 'info');
+      addLog(`✓ Tiêu đề: ${videoInfo.title || 'Không có tiêu đề'}`, 'info');
       addLog(`✓ Tác giả: ${videoInfo.author?.nickname || 'Không rõ'}`, 'info');
-      addLog(`✓ Lượt thích: ${videoInfo.statistics?.digg_count || 0}`, 'info');
-      addLog(`✓ Lượt xem: ${videoInfo.statistics?.play_count || 0}`, 'info');
+      addLog(`✓ Lượt thích: ${videoInfo.digg_count || 0}`, 'info');
+      addLog(`✓ Lượt xem: ${videoInfo.play_count || 0}`, 'info');
       
-      if (videoInfo.video?.play_addr?.url_list?.length > 0) {
+      if (videoInfo.play) {
         addLog('✓ Tìm thấy link video không watermark!', 'success');
       } else if (videoInfo.images?.length > 0) {
         addLog(`✓ Tìm thấy ${videoInfo.images.length} hình ảnh (Video dạng album)`, 'success');
@@ -140,7 +112,7 @@ export default function Home() {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleDownload()}
-                  placeholder="https://www.tiktok.com/@username/video/... hoặc https://v.douyin.com/..."
+                  placeholder="https://www.tiktok.com/@username/video/... hoặc https://vt.tiktok.com/..."
                   className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-base"
                   disabled={loading}
                 />
@@ -163,7 +135,7 @@ export default function Home() {
                 </button>
               </div>
               <p className="mt-3 text-sm text-gray-500">
-                💡 Hỗ trợ: TikTok (tiktok.com), Douyin (douyin.com), link rút gọn (vm.tiktok.com, v.douyin.com)
+                💡 Hỗ trợ: TikTok (tiktok.com), Douyin (douyin.com), link rút gọn (vm.tiktok.com, vt.tiktok.com)
               </p>
             </div>
 
@@ -193,59 +165,79 @@ export default function Home() {
                 </h3>
                 
                 <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                  {videoData.cover && (
+                    <img 
+                      src={videoData.cover} 
+                      alt="Video Cover"
+                      className="w-full h-64 object-cover rounded-lg mb-4"
+                    />
+                  )}
+                  
                   <p className="text-gray-700 mb-2">
-                    <span className="font-semibold">Tiêu đề:</span> {videoData.desc || 'Không có tiêu đề'}
+                    <span className="font-semibold">Tiêu đề:</span> {videoData.title || 'Không có tiêu đề'}
                   </p>
                   <p className="text-gray-700 mb-2">
-                    <span className="font-semibold">Tác giả:</span> {videoData.author?.nickname || 'Không rõ'}
+                    <span className="font-semibold">Tác giả:</span> {videoData.author?.nickname || videoData.author?.unique_id || 'Không rõ'}
                   </p>
                   <p className="text-gray-700 mb-2">
-                    <span className="font-semibold">Thời lượng:</span> {videoData.video?.duration ? `${videoData.video.duration}s` : 'N/A'}
+                    <span className="font-semibold">Thời lượng:</span> {videoData.duration ? `${videoData.duration}s` : 'N/A'}
                   </p>
                   <div className="flex gap-4 text-sm text-gray-600 mt-3">
-                    <span>👍 {videoData.statistics?.digg_count || 0} lượt thích</span>
-                    <span>💬 {videoData.statistics?.comment_count || 0} bình luận</span>
-                    <span>👁 {videoData.statistics?.play_count || 0} lượt xem</span>
+                    <span>👍 {videoData.digg_count || 0} lượt thích</span>
+                    <span>💬 {videoData.comment_count || 0} bình luận</span>
+                    <span>👁 {videoData.play_count || 0} lượt xem</span>
+                    <span>🔄 {videoData.share_count || 0} chia sẻ</span>
                   </div>
                 </div>
 
-                {videoData.video?.play_addr?.url_list?.length > 0 && (
+                {videoData.play && (
                   <div className="mb-4">
                     <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                       <Video className="w-5 h-5" />
                       Video không watermark:
                     </h4>
-                    {videoData.video.play_addr.url_list.map((videoUrl, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
+                    <div className="space-y-2">
+                      <a
+                        href={videoData.play}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="block px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all text-center transform hover:scale-105 active:scale-95 shadow-md"
+                      >
+                        📥 Tải video (SD Quality)
+                      </a>
+                      
+                      {videoData.hdplay && (
                         <a
-                          href={videoUrl}
+                          href={videoData.hdplay}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all text-center transform hover:scale-105 active:scale-95 shadow-md"
+                          download
+                          className="block px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all text-center transform hover:scale-105 active:scale-95 shadow-md"
                         >
-                          Tải video (Link {index + 1})
+                          🎬 Tải video (HD Quality)
                         </a>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {videoData.images && videoData.images.length > 0 && (
-                  <div>
+                  <div className="mb-4">
                     <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                       <Image className="w-5 h-5" />
                       Hình ảnh ({videoData.images.length} ảnh):
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {videoData.images.map((img, index) => (
+                      {videoData.images.map((imgUrl, index) => (
                         <div key={index} className="relative group">
                           <img
-                            src={img.url_list[0]}
+                            src={imgUrl}
                             alt={`Image ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg shadow-md"
                           />
                           <a
-                            href={img.url_list[0]}
+                            href={imgUrl}
                             download={`image_${index + 1}.jpg`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -260,18 +252,20 @@ export default function Home() {
                 )}
 
                 {videoData.music && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-700">
-                      🎵 <span className="font-semibold">Nhạc nền:</span> {videoData.music.title}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-gray-700 mb-2 flex items-center gap-2">
+                      <Music className="w-4 h-4" />
+                      <span className="font-semibold">Nhạc nền:</span> {videoData.music}
                     </p>
-                    {videoData.music.play_url && (
+                    {videoData.music_info?.play && (
                       <a
-                        href={videoData.music.play_url.url_list[0]}
+                        href={videoData.music_info.play}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm underline mt-1 inline-block"
+                        download
+                        className="inline-block mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-all"
                       >
-                        Tải nhạc nền
+                        🎵 Tải nhạc nền
                       </a>
                     )}
                   </div>
@@ -282,7 +276,7 @@ export default function Home() {
         </div>
 
         <div className="mt-6 text-center text-gray-600 text-sm">
-          <p>💡 Sử dụng API: api.douyin.wtf | Không lưu trữ video | Hoàn toàn miễn phí</p>
+          <p>💡 Sử dụng API: tikwm.com | Không lưu trữ video | Hoàn toàn miễn phí</p>
           <p className="mt-2">⚠️ Chỉ sử dụng cho mục đích cá nhân, tôn trọng bản quyền tác giả</p>
         </div>
       </div>
