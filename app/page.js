@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+'use client';
+
+import { useState } from 'react';
 import { Download, AlertCircle, CheckCircle, Loader2, Video, Image } from 'lucide-react';
 
-export default function TikTokDouyinDownloader() {
+export default function Home() {
   const [url, setUrl] = useState('');
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -95,27 +97,6 @@ export default function TikTokDouyinDownloader() {
       console.error('Error:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDirectDownload = async (downloadUrl, filename) => {
-    try {
-      addLog(`Đang tải xuống: ${filename}...`, 'info');
-      
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      addLog(`✓ Đã tải xuống: ${filename}`, 'success');
-    } catch (error) {
-      addLog(`✗ Không thể tải xuống: ${error.message}`, 'error');
     }
   };
 
