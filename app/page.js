@@ -14,6 +14,13 @@ export default function Home() {
     setLogs(prev => [...prev, { message, type, timestamp }]);
   };
 
+  const detectPlatform = (inputUrl) => {
+    if (inputUrl.includes('douyin.com')) {
+      return 'douyin';
+    }
+    return 'tiktok';
+  };
+
   const handleDownload = async () => {
     if (!url.trim()) {
       addLog('Vui lòng nhập link video!', 'error');
@@ -28,9 +35,13 @@ export default function Home() {
     addLog(`URL đầu vào: ${url}`, 'info');
 
     try {
-      addLog('Đang gửi yêu cầu qua API proxy...', 'info');
+      const platform = detectPlatform(url);
+      addLog(`✓ Phát hiện nền tảng: ${platform === 'douyin' ? 'Douyin' : 'TikTok'}`, 'success');
       
-      const response = await fetch(`/api/tiktok?url=${encodeURIComponent(url)}`);
+      const apiEndpoint = platform === 'douyin' ? '/api/douyin' : '/api/tiktok';
+      addLog(`Đang gửi yêu cầu qua API proxy (${platform})...`, 'info');
+      
+      const response = await fetch(`${apiEndpoint}?url=${encodeURIComponent(url)}`);
       
       addLog(`✓ Nhận phản hồi từ server (Status: ${response.status})`, 'success');
 
