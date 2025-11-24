@@ -38,6 +38,10 @@ export default function Home() {
       const platform = detectPlatform(url);
       addLog(`✓ Phát hiện nền tảng: ${platform === 'douyin' ? 'Douyin' : 'TikTok'}`, 'success');
       
+      if (platform === 'douyin' && url.includes('v.douyin.com')) {
+        addLog('Đang mở rộng link rút gọn Douyin...', 'info');
+      }
+      
       const apiEndpoint = platform === 'douyin' ? '/api/douyin' : '/api/tiktok';
       addLog(`Đang gửi yêu cầu qua API proxy (${platform})...`, 'info');
       
