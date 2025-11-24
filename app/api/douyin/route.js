@@ -1,8 +1,30 @@
 import { NextResponse } from 'next/server';
 
+async function expandUrl(shortUrl) {
+  try {
+    const response = await fetch(shortUrl, {
+      method: 'HEAD',
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      }
+    });
+    
+    const location = response.headers.get('location');
+    if (location) {
+      return location;
+    }
+    
+    return shortUrl;
+  } catch (error) {
+    console.error('Error expanding URL:', error);
+    return shortUrl;
+  }
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const url = searchParams.get('url');
+  let url = searchParams.get('url');
 
   if (!url) {
     return NextResponse.json(
@@ -12,6 +34,11 @@ export async function GET(request) {
   }
 
   try {
+    if (url.includes('v.douyin.com')) {
+      const expandedUrl = await expandUrl(url);
+      url = expandedUrl;
+    }
+
     const apiUrl = `https://api.douyin.wtf/api/hybrid/video_data?url=${encodeURIComponent(url)}&minimal=false`;
     
     const response = await fetch(apiUrl, {
